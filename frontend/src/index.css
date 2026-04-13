@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply bg-black min-h-screen;
+  }
+  body {
+    @apply bg-black text-gray-100 antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+  * { @apply border-white/5; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white/[0.03] rounded-2xl border border-white/[0.06] p-5
+           backdrop-blur-sm;
+  }
+  .card-hover {
+    @apply card transition-all duration-300 hover:bg-white/[0.06] hover:border-white/10 hover:shadow-lg hover:shadow-black/40;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .badge-up {
+    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20
+           px-2 py-0.5 rounded-md text-xs font-semibold mono;
+  }
+  .badge-down {
+    @apply bg-red-500/10 text-red-400 border border-red-500/20
+           px-2 py-0.5 rounded-md text-xs font-semibold mono;
+  }
+  .badge-neutral {
+    @apply bg-white/5 text-gray-500 border border-white/10
+           px-2 py-0.5 rounded-md text-xs font-semibold;
+  }
+  .btn-primary {
+    @apply bg-white text-black px-4 py-2 rounded-xl text-sm font-semibold
+           transition-all duration-200 hover:bg-gray-100 active:scale-95;
+  }
+  .btn-ghost {
+    @apply bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white
+           px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-white/5;
+  }
+  .input-base {
+    @apply bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm
+           text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/20
+           focus:bg-white/[0.06] transition-all duration-200;
+  }
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+  50%       { box-shadow: 0 0 20px 4px rgba(99,102,241,0.15); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+@keyframes bar-grow {
+  from { width: 0%; }
+}
+
+.animate-fade-up    { animation: fadeUp 0.4s ease forwards; }
+.animate-fade-in    { animation: fadeIn 0.3s ease forwards; }
+.animate-scale-in   { animation: scaleIn 0.3s ease forwards; }
+.animate-slide-right { animation: slideInRight 0.35s ease forwards; }
+.animate-slide-left  { animation: slideInLeft 0.35s ease forwards; }
+.animate-bar-grow   { animation: bar-grow 0.6s ease forwards; }
+
+/* Stagger delays */
+.delay-0   { animation-delay: 0ms; }
+.delay-50  { animation-delay: 50ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-250 { animation-delay: 250ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-350 { animation-delay: 350ms; }
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
+
+/* Typing cursor */
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+  color: #6366f1;
+}
+
+/* Nav underline */
+.nav-active {
+  position: relative;
+}
+.nav-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0; right: 0;
+  height: 1.5px;
+  background: white;
+  border-radius: 99px;
+}
+
+/* Progress bar */
+.progress-bar {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}

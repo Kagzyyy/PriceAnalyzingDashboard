@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+yfinance
+pandas
+numpy
+xgboost
+scikit-learn
+ta
+chromadb
+sentence-transformers
+apscheduler
+python-dotenv
+pydantic
+httpx
+requests
+pyarrow
+groq

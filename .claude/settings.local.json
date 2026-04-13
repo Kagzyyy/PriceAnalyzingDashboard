@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"import backend.main; print\\(''OK''\\)\")",
+      "Bash(python -c \"import backend.main; print\\(''Import OK''\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(python -c \"import urllib.request; print\\(urllib.request.urlopen\\(''http://localhost:8000/health''\\).read\\(\\).decode\\(\\)\\)\")",
+      "Bash(npm install:*)",
+      "Bash(python -c \"import uvicorn; print\\(''ok''\\)\")",
+      "Bash(python -m uvicorn --version)",
+      "Bash(where python:*)",
+      "Bash(/c/Python314/python.exe -c \"import uvicorn; print\\(''ok''\\)\")",
+      "Bash(where pip:*)",
+      "Bash(/c/Python314/python.exe -m pip show uvicorn)",
+      "Bash(/c/Python314/python.exe -c \"import uvicorn; print\\(uvicorn.__file__\\)\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/refresh)",
+      "Bash(curl -s http://localhost:8000/api/status)",
+      "Bash(curl -s http://localhost:8000/api/predictions)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f''''Total predictions: {len\\(d\\)}''''\\); [print\\(p\\) for p in d[:3]]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(/c/Python314/python.exe -c \":*)",
+      "Bash(/c/Python314/python.exe -c \"from google import genai; print\\(''ok''\\)\")",
+      "Bash(C:/Python314/python.exe -c \":*)",
+      "WebSearch"
+    ]
+  }
+}

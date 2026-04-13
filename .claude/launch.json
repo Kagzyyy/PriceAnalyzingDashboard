@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "FastAPI Backend",
+      "runtimeExecutable": "C:\\Users\\ASUS\\AppData\\Roaming\\Python\\Python314\\Scripts\\uvicorn.exe",
+      "runtimeArgs": ["backend.main:app", "--port", "8000", "--host", "0.0.0.0"],
+      "port": 8000
+    },
+    {
+      "name": "Vite Frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "port": 5173
+    }
+  ]
+}
