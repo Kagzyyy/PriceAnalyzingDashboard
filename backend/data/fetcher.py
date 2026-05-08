@@ -88,16 +88,25 @@ def _clean_ohlcv(df: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
 
 
 def fetch_training_data() -> pd.DataFrame:
-    """Fetch 3 years of data for all NSE stocks (used for model training)."""
-    logger.info(f"Fetching training data ({LOOKBACK_DAYS} days)...")
-    tickers = get_tickers()
+    """
+    Fetch 3 years of OHLCV for the Nifty 100 universe.
+
+    Why nifty100 (not nifty50)?
+      - The ML model trains on the nifty50 subset (filtered later in the
+        training pipeline), but the pairs backtester needs nifty100 data to
+        find enough cointegrated pairs: C(100,2)=4950 vs C(50,2)=1225.
+      - nifty50 ⊂ nifty100, so nifty50 model training data is fully covered.
+    """
+    logger.info(f"Fetching training data ({LOOKBACK_DAYS} days, Nifty 100 universe)...")
+    tickers = get_tickers(universe="nifty100")
+    logger.info(f"Universe: {len(tickers)} tickers")
     return fetch_history(tickers, LOOKBACK_DAYS)
 
 
 def fetch_refresh_data() -> pd.DataFrame:
-    """Fetch recent 60 days of data for all NSE stocks (daily refresh)."""
-    logger.info("Fetching refresh data (60 days)...")
-    tickers = get_tickers()
+    """Fetch recent 60 days for Nifty 100 (covers both model + pairs)."""
+    logger.info("Fetching refresh data (60 days, Nifty 100 universe)...")
+    tickers = get_tickers(universe="nifty100")
     return fetch_history(tickers, REFRESH_DAYS)
 
 

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.data.storage import init_db
 from backend.scheduler import create_scheduler
-from backend.api.routes import predictions, stocks, sectors, assistant, system, backtest
+from backend.api.routes import predictions, stocks, sectors, assistant, system, backtest, pairs_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +53,8 @@ app.include_router(stocks.router, prefix="/api", tags=["Stocks"])
 app.include_router(sectors.router, prefix="/api", tags=["Sectors"])
 app.include_router(assistant.router, prefix="/api", tags=["Assistant"])
 app.include_router(system.router,    prefix="/api", tags=["System"])
-app.include_router(backtest.router,  prefix="/api", tags=["Backtest"])
+app.include_router(backtest.router,       prefix="/api", tags=["Backtest"])
+app.include_router(pairs_backtest.router, prefix="/api", tags=["Pairs"])
 
 
 @app.get("/")

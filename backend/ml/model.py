@@ -9,18 +9,37 @@ from pathlib import Path
 from datetime import date
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
-from backend.config import MODEL_PATH
+from backend.config import MODEL_PATH, UNIVERSE
 from backend.ml.features import FEATURE_COLS, engineer_features
 from backend.data.storage import save_model_meta
 
 logger = logging.getLogger(__name__)
 
 
+def _filter_to_universe(ohlcv_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter OHLCV data to the configured universe (default: nifty50).
+    The parquet may contain nifty100 data (needed for pairs), but the
+    directional model only trains/predicts on the configured universe.
+    """
+    if UNIVERSE == "all":
+        return ohlcv_df
+    from backend.data.symbols import get_tickers
+    allowed = set(get_tickers(universe=UNIVERSE))
+    filtered = ohlcv_df[ohlcv_df["ticker"].isin(allowed)]
+    logger.info(
+        f"Universe filter ({UNIVERSE}): {ohlcv_df['ticker'].nunique()} → "
+        f"{filtered['ticker'].nunique()} stocks"
+    )
+    return filtered
+
+
 def train_model(ohlcv_df: pd.DataFrame) -> dict:
     """
-    Train XGBoost on all stocks combined.
+    Train XGBoost on the configured universe (default: nifty50).
     Returns accuracy metrics dict.
     """
+    ohlcv_df = _filter_to_universe(ohlcv_df)
     logger.info("Engineering features for training...")
     from backend.data.nifty import get_nifty_features
     nifty_df = get_nifty_features()
@@ -152,9 +171,10 @@ def load_model() -> XGBClassifier:
 
 def predict(ohlcv_df: pd.DataFrame, sentiment_df: pd.DataFrame | None = None) -> pd.DataFrame:
     """
-    Given recent OHLCV data, generate predictions for all tickers.
+    Given recent OHLCV data, generate predictions for universe stocks only.
     Returns DataFrame: [ticker, date, prob_up, prob_down, direction, price, change_pct, volume, ...]
     """
+    ohlcv_df = _filter_to_universe(ohlcv_df)
     model = load_model()
 
     logger.info("Engineering features for prediction...")

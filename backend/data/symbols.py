@@ -1,16 +1,50 @@
 """
 NSE symbol registry.
-Primary source: embedded curated list of ~500 liquid NSE stocks.
-Extended: fetch full symbol list from NSE bhavcopy on first run.
+Primary source: embedded curated list of ~177 liquid NSE stocks.
+Universe filtering: controlled by backend.config.UNIVERSE
+  "nifty50"  → 50 Nifty 50 constituents (best coverage for earnings/analyst)
+  "nifty100" → 100 Nifty 100 constituents (wider for pairs trading)
+  "all"      → full curated list (~177 stocks)
 """
 import json
 import logging
 import requests
 import pandas as pd
 from pathlib import Path
-from backend.config import SYMBOLS_PATH
+from backend.config import SYMBOLS_PATH, UNIVERSE
 
 logger = logging.getLogger(__name__)
+
+# ── Universe sets ─────────────────────────────────────────────────────────
+# Exact Nifty 50 constituents (as of 2025).
+# These all have deep analyst coverage + reliable yfinance earnings history.
+NIFTY_50_SYMBOLS = {
+    "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK", "BAJAJ-AUTO",
+    "BAJAJFINSV", "BAJFINANCE", "BHARTIARTL", "BPCL", "BRITANNIA",
+    "CIPLA", "COALINDIA", "DIVISLAB", "DRREDDY", "EICHERMOT",
+    "GRASIM", "HCLTECH", "HDFCBANK", "HDFCLIFE", "HEROMOTOCO",
+    "HINDALCO", "HINDUNILVR", "ICICIBANK", "INDUSINDBK", "INFY",
+    "ITC", "JSWSTEEL", "KOTAKBANK", "LT", "M&M",
+    "MARUTI", "NESTLEIND", "NTPC", "ONGC", "POWERGRID",
+    "RELIANCE", "SBICARD", "SBILIFE", "SBIN", "SUNPHARMA",
+    "TATACONSUM", "TATAMOTORS", "TATASTEEL", "TCS", "TECHM",
+    "TITAN", "TRENT", "ULTRACEMCO", "WIPRO", "ZOMATO",
+}
+
+# Nifty 100 = Nifty 50 + 50 more liquid large/mid-caps.
+# Used by the pairs backtester (needs more pairs: C(100,2)=4950 vs C(50,2)=1225).
+NIFTY_100_SYMBOLS = NIFTY_50_SYMBOLS | {
+    "ADANIENT", "ADANIGREEN", "AMBUJACEM", "AUROPHARMA", "BANDHANBNK",
+    "BEL", "BIOCON", "BOSCHLTD", "CHOLAFIN", "COLPAL",
+    "DLF", "FEDERALBNK", "GLENMARK", "GODREJCP", "GODREJPROP",
+    "HAL", "HAVELLS", "HDFCAMC", "IDFCFIRSTB", "ICICIPRULI",
+    "ICICIGI", "JSWENERGY", "LICHSGFIN", "LTIM", "LUPIN",
+    "MARICO", "MUTHOOTFIN", "NYKAA", "OFSS", "PERSISTENT",
+    "PIDILITIND", "SBICARD", "SIEMENS", "SRF", "TATAPOWER",
+    "TORNTPHARM", "TVSMOTOR", "VEDL", "ZYDUSLIFE", "INDHOTEL",
+    "MAXHEALTH", "LALPATHLAB", "APOLLOHOSP", "CONCOR", "GODREJPROP",
+    "OBEROIHOTEL", "MANKIND", "LAURUSLABS", "BAJAJFINSV", "SAIL",
+}
 
 # Curated base list — NIFTY 500 + key mid-caps with sector mapping
 BASE_SYMBOLS = [
@@ -78,6 +112,9 @@ BASE_SYMBOLS = [
     {"symbol": "TORNTPOWER", "name": "Torrent Power", "sector": "Energy", "industry": "Power Generation"},
     {"symbol": "CESC", "name": "CESC", "sector": "Energy", "industry": "Power Distribution"},
     {"symbol": "NHPC", "name": "NHPC", "sector": "Energy", "industry": "Hydro Power"},
+    # PAINTS & MATERIALS (Nifty 50)
+    {"symbol": "ASIANPAINT", "name": "Asian Paints", "sector": "Consumer Durables", "industry": "Paints"},
+    {"symbol": "GRASIM", "name": "Grasim Industries", "sector": "Cement", "industry": "Diversified"},
     # FMCG
     {"symbol": "HINDUNILVR", "name": "Hindustan Unilever", "sector": "FMCG", "industry": "Personal Care"},
     {"symbol": "ITC", "name": "ITC", "sector": "FMCG", "industry": "Tobacco & FMCG"},
@@ -229,12 +266,35 @@ BASE_SYMBOLS = [
 ]
 
 
-def load_symbols() -> list[dict]:
-    """Load symbols from file if exists, else use base list."""
+def load_symbols(universe: str | None = None) -> list[dict]:
+    """
+    Load symbols and filter to the requested universe.
+
+    universe: "nifty50" | "nifty100" | "all" | None (uses config.UNIVERSE)
+    """
     if SYMBOLS_PATH.exists():
         with open(SYMBOLS_PATH) as f:
-            return json.load(f)
-    return BASE_SYMBOLS
+            all_syms = json.load(f)
+    else:
+        all_syms = BASE_SYMBOLS
+
+    target = (universe or UNIVERSE).lower()
+    if target == "nifty50":
+        filtered = [s for s in all_syms if s["symbol"] in NIFTY_50_SYMBOLS]
+        # Safety: if filter yields < 40 stocks (stale symbols.json), fall back to base
+        if len(filtered) < 40:
+            filtered = [s for s in BASE_SYMBOLS if s["symbol"] in NIFTY_50_SYMBOLS]
+        logger.info(f"Universe=nifty50 → {len(filtered)} stocks")
+        return filtered
+    elif target == "nifty100":
+        filtered = [s for s in all_syms if s["symbol"] in NIFTY_100_SYMBOLS]
+        if len(filtered) < 80:
+            filtered = [s for s in BASE_SYMBOLS if s["symbol"] in NIFTY_100_SYMBOLS]
+        logger.info(f"Universe=nifty100 → {len(filtered)} stocks")
+        return filtered
+    else:
+        logger.info(f"Universe=all → {len(all_syms)} stocks")
+        return all_syms
 
 
 def save_symbols(symbols: list[dict]) -> None:
@@ -243,10 +303,10 @@ def save_symbols(symbols: list[dict]) -> None:
         json.dump(symbols, f, indent=2)
 
 
-def get_tickers() -> list[str]:
-    """Return list of yfinance tickers (symbol + .NS)."""
-    symbols = load_symbols()
-    # Deduplicate
+def get_tickers(universe: str | None = None) -> list[str]:
+    """Return list of yfinance tickers (symbol + .NS) for the given universe."""
+    symbols = load_symbols(universe)
+    # Deduplicate (handles LTI/LTIM, TVSMOTORS/TVSMOTOR duplicates in base list)
     seen = set()
     tickers = []
     for s in symbols:
@@ -257,10 +317,16 @@ def get_tickers() -> list[str]:
     return tickers
 
 
-def get_symbol_map() -> dict[str, dict]:
+def get_symbol_map(universe: str | None = None) -> dict[str, dict]:
     """Return dict: yf_ticker -> {symbol, name, sector, industry}"""
-    symbols = load_symbols()
+    symbols = load_symbols(universe)
     return {f"{s['symbol']}.NS": s for s in symbols}
+
+
+def get_sector_map(universe: str | None = None) -> dict[str, str]:
+    """Return dict: symbol -> sector (without .NS suffix). Useful for pairs."""
+    symbols = load_symbols(universe)
+    return {s["symbol"]: s["sector"] for s in symbols}
 
 
 def fetch_extended_from_nse() -> list[dict]:

@@ -146,3 +146,93 @@ export interface BacktestParams {
 
 export const fetchBacktest = (params?: BacktestParams) =>
   api.get<BacktestResult>('/backtest', { params }).then(r => r.data)
+
+// ── Pairs Backtest ─────────────────────────────────────────────────────────
+export interface PairsMetrics {
+  total_return_pct:     number
+  annualized_return:    number
+  sharpe_ratio:         number
+  max_drawdown_pct:     number
+  win_rate_pct:         number
+  avg_win_pct:          number
+  avg_loss_pct:         number
+  expectancy_pct:       number
+  total_trades:         number
+  avg_holding_days:     number
+  n_pairs:              number
+  backtest_days:        number
+  backtest_start:       string
+  backtest_end:         string
+  initial_capital:      number
+  final_capital:        number
+  benchmark_return:     number
+  alpha:                number
+  transaction_cost_pct: number
+}
+
+export interface PairSummary {
+  pair_id:     string
+  symbol_a:    string
+  symbol_b:    string
+  sector:      string
+  pvalue:      number
+  hedge_ratio: number
+  half_life:   number | null
+  correlation: number
+  n_obs:       number
+  trades:      number
+}
+
+export interface PairsTradeRecord {
+  pair:         string
+  sector:       string
+  date_entry:   string
+  date_exit:    string
+  direction:    'LONG' | 'SHORT'
+  days_held:    number
+  entry_z:      number
+  exit_z:       number
+  gross_ret:    number
+  trade_ret:    number
+  conviction:   number
+  exit_reason:  string
+  ml_confirmed: string
+  won:          boolean
+}
+
+export interface FilterStats {
+  total_signals:     number
+  regime_blocked:    number
+  sentiment_blocked: number
+  ml_skipped:        number
+  ml_half_size:      number
+  traded:            number
+}
+
+export interface PairsResult {
+  metrics:         PairsMetrics
+  equity_curve:    EquityPoint[]
+  benchmark_curve: EquityPoint[]
+  monthly:         MonthlyReturn[]
+  trades:          PairsTradeRecord[]
+  pairs:           PairSummary[]
+  exit_breakdown:  Record<string, number>
+  filter_stats:    FilterStats
+  warnings:        string[]
+}
+
+export interface PairsParams {
+  z_entry?:           number
+  z_exit?:            number
+  z_stop?:            number
+  max_pairs?:         number
+  max_holding_days?:  number
+  sector_only?:       boolean
+  use_ml_confirm?:    boolean
+  use_sentiment?:     boolean
+  use_regime_filter?: boolean
+  capital?:           number
+}
+
+export const fetchPairsBacktest = (params?: PairsParams) =>
+  api.get<PairsResult>('/pairs-backtest', { params }).then(r => r.data)

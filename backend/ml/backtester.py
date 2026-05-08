@@ -24,7 +24,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-from backend.config import MODEL_PATH
+from backend.config import MODEL_PATH, UNIVERSE
 from backend.data.storage import get_all_ohlcv_for_features
 from backend.data.nifty import get_nifty_features
 from backend.ml.features import FEATURE_COLS, engineer_features
@@ -76,6 +76,15 @@ def run_backtest(
     raw = get_all_ohlcv_for_features()
     if raw.empty:
         raise ValueError("No OHLCV data. Run the pipeline first.")
+
+    # Filter to same universe the model was trained on (default: nifty50).
+    # Parquet may contain nifty100 data (for pairs), but the backtest must be
+    # consistent with the production model universe.
+    if UNIVERSE != "all":
+        from backend.data.symbols import get_tickers
+        allowed = set(get_tickers(universe=UNIVERSE))
+        raw = raw[raw["ticker"].isin(allowed)]
+        logger.info(f"Universe filter ({UNIVERSE}): {raw['ticker'].nunique()} stocks in backtest")
 
     logger.info("Loading Nifty features…")
     nifty_df = get_nifty_features()

@@ -6,6 +6,7 @@ import Rankings from './pages/Rankings'
 import StockDetail from './pages/StockDetail'
 import Chat from './pages/Chat'
 import Backtest from './pages/Backtest'
+import PairsBacktest from './pages/PairsBacktest'
 import { triggerRefresh } from './api/client'
 
 function Navbar() {
@@ -45,6 +46,7 @@ function Navbar() {
           <NavLink to="/" end className={navCls}>Dashboard</NavLink>
           <NavLink to="/rankings" className={navCls}>Rankings</NavLink>
           <NavLink to="/backtest" className={navCls}>Backtest</NavLink>
+          <NavLink to="/pairs" className={navCls}>Pairs</NavLink>
           <NavLink to="/chat" className={navCls}>Research AI</NavLink>
         </div>
 
@@ -85,6 +87,7 @@ export default function App() {
           <Route path="/rankings" element={<Rankings />} />
           <Route path="/stocks/:symbol" element={<StockDetail />} />
           <Route path="/backtest" element={<Backtest />} />
+          <Route path="/pairs" element={<PairsBacktest />} />
           <Route path="/chat" element={<Chat />} />
         </Routes>
       </main>

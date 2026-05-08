@@ -8,7 +8,8 @@ router = APIRouter()
 @router.get("/stocks/{symbol}")
 def get_stock_detail(symbol: str, days: int = Query(180, ge=30, le=730)):
     ticker = f"{symbol.upper()}.NS"
-    symbol_map = get_symbol_map()
+    # Use full symbol map so any stock in the DB can be looked up by the user.
+    symbol_map = get_symbol_map(universe="all")
     info = symbol_map.get(ticker, {})
 
     # Prediction
@@ -61,7 +62,8 @@ def get_stock_detail(symbol: str, days: int = Query(180, ge=30, le=730)):
 
 @router.get("/stocks")
 def search_stocks(q: str = Query("", min_length=0)):
-    symbol_map = get_symbol_map()
+    # Search over full list so users can find any stock, not just nifty50.
+    symbol_map = get_symbol_map(universe="all")
     q = q.lower()
     results = []
     for ticker, info in symbol_map.items():
