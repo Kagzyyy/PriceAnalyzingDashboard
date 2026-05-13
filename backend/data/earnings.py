@@ -132,12 +132,18 @@ def build_earnings_features(ohlcv_df: pd.DataFrame, earnings_df: pd.DataFrame) -
 
         # For each row, find the most recent earnings date BEFORE that date
         # Use pd.merge_asof (sorted join on nearest past key)
-        grp_sorted = grp.sort_values("date")
-        earn_sorted = earn[["earnings_date", "surprise_pct"]].sort_values("earnings_date")
+        grp_sorted  = grp.sort_values("date").reset_index(drop=True)
+        # Rename earnings_date → date so merge_asof can join on a single key
+        earn_sorted = (
+            earn[["earnings_date", "surprise_pct"]]
+            .sort_values("earnings_date")
+            .rename(columns={"earnings_date": "date", "surprise_pct": "earnings_surprise_pct"})
+            .reset_index(drop=True)
+        )
 
         merged = pd.merge_asof(
             grp_sorted[["date"]],
-            earn_sorted.rename(columns={"earnings_date": "date", "surprise_pct": "earnings_surprise_pct"}),
+            earn_sorted,            # already has "date" column
             on="date",
             direction="backward",   # use the most recent past earnings
         )
