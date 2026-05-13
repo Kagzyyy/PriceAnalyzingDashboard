@@ -94,6 +94,14 @@ def engineer_features(
 
     out = pd.concat(result_frames, ignore_index=True)
     out = out.dropna(subset=["label"])
+
+    # ── Cross-sectional sector-relative features ───────────────────────────
+    # These MUST be computed after the full concat — they compare each stock
+    # against its sector peers on the same date, which requires all tickers
+    # to be present simultaneously. Computing them per-ticker would just
+    # give zeros everywhere.
+    out = _add_sector_relative_features(out)
+
     return out
 
 
@@ -201,6 +209,67 @@ def _add_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _add_sector_relative_features(out: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cross-sectional features: how is each stock performing vs its sector peers?
+
+    Why this matters:
+      - RSI=65 on its own is ambiguous. RSI=65 when every peer is at 45 is bullish.
+      - XGBoost cannot derive cross-sectional context from per-stock features alone.
+      - Sector-relative signals are harder to arbitrage because they require
+        knowing the entire sector simultaneously — a genuine information edge.
+
+    Features added (all computed within [date × sector] groups):
+      sector_ret_1d_vs_peers  — stock 1d return minus sector median 1d return
+      sector_ret_5d_vs_peers  — stock 5d return minus sector median 5d return
+      sector_ret_20d_vs_peers — stock 20d return minus sector median 20d return
+      sector_rsi_rank         — RSI percentile rank within sector  (0=worst, 1=best)
+      sector_momentum_rank    — 20d return percentile rank within sector
+      sector_volume_rank      — volume_ratio percentile rank within sector
+      sector_bb_rank          — Bollinger %B percentile rank within sector
+    """
+    try:
+        from backend.data.symbols import get_symbol_map
+        sym_map = get_symbol_map(universe="nifty100")
+        # Map ticker → sector
+        out["_sector"] = out["ticker"].map(
+            lambda t: sym_map.get(t, {}).get("sector", "Unknown")
+        )
+
+        grp = out.groupby(["date", "_sector"])
+
+        # 1. Sector-demeaned returns (stock value − sector median)
+        for ret_col in ["ret_1d", "ret_5d", "ret_20d"]:
+            sector_med = grp[ret_col].transform("median")
+            out[f"sector_{ret_col}_vs_peers"] = (out[ret_col] - sector_med).fillna(0.0)
+
+        # 2. Percentile ranks within sector on each date
+        for raw_col, feat_name in [
+            ("rsi_14",       "sector_rsi_rank"),
+            ("ret_20d",      "sector_momentum_rank"),
+            ("volume_ratio", "sector_volume_rank"),
+            ("bb_pct",       "sector_bb_rank"),
+        ]:
+            out[feat_name] = grp[raw_col].transform(
+                lambda x: x.rank(pct=True, method="average")
+            ).fillna(0.5)   # 0.5 = neutral for single-stock sectors
+
+        out.drop(columns=["_sector"], inplace=True)
+        logger.info("Sector-relative features added successfully")
+
+    except Exception as e:
+        logger.warning(f"Sector-relative features failed (non-fatal): {e}")
+        # Fill with neutral values so training still proceeds
+        for col in [
+            "sector_ret_1d_vs_peers", "sector_ret_5d_vs_peers", "sector_ret_20d_vs_peers",
+            "sector_rsi_rank", "sector_momentum_rank", "sector_volume_rank", "sector_bb_rank",
+        ]:
+            if col not in out.columns:
+                out[col] = 0.0
+
+    return out
+
+
 FEATURE_COLS = [
     # Momentum
     "rsi_14", "rsi_7", "roc_5", "roc_10", "roc_20",
@@ -226,4 +295,9 @@ FEATURE_COLS = [
     # Nifty market context (regime, momentum, volatility of the broad market)
     "nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d",
     "nifty_vs_ema20", "nifty_vs_ema50", "nifty_regime", "nifty_volatility",
+    # Sector-relative strength (cross-sectional — stock vs sector peers)
+    # These require all tickers simultaneously and encode genuine edge:
+    # RSI=65 when peers are at 45 is much more bullish than RSI=65 in isolation.
+    "sector_ret_1d_vs_peers", "sector_ret_5d_vs_peers", "sector_ret_20d_vs_peers",
+    "sector_rsi_rank", "sector_momentum_rank", "sector_volume_rank", "sector_bb_rank",
 ]
