@@ -112,7 +112,11 @@ def build_earnings_features(ohlcv_df: pd.DataFrame, earnings_df: pd.DataFrame) -
         return ohlcv_df
 
     ohlcv_df = ohlcv_df.copy()
-    ohlcv_df["date"] = pd.to_datetime(ohlcv_df["date"])
+    # Normalise both to microsecond precision to avoid merge dtype mismatch
+    # (pandas uses ns internally; yfinance timestamps can be seconds or microseconds)
+    ohlcv_df["date"] = pd.to_datetime(ohlcv_df["date"]).astype("datetime64[us]")
+    earnings_df = earnings_df.copy()
+    earnings_df["earnings_date"] = pd.to_datetime(earnings_df["earnings_date"]).astype("datetime64[us]")
 
     result_frames = []
     for ticker, grp in ohlcv_df.groupby("ticker"):
