@@ -243,16 +243,34 @@ def run_pairs_backtest(
     )
 
     if pairs_df.empty:
-        raise ValueError("No cointegrated pairs found. Try sector_only=False.")
+        # If same-sector yielded nothing, automatically retry cross-sector
+        if sector_only:
+            logger.warning("No cointegrated pairs found with sector_only=True — retrying cross-sector…")
+            pairs_df = find_cointegrated_pairs(
+                formation_px, sector_map,
+                sector_only=False,
+                max_pairs=max_pairs * 10,
+            )
+        if pairs_df.empty:
+            raise ValueError(
+                "No cointegrated pairs found even cross-sector. "
+                "The formation period may contain structural breaks (mergers, crises). "
+                "Try a shorter lookback or different universe."
+            )
 
-    pairs_df = pairs_df[
+    # Half-life filter — pairs that revert too fast (noise) or too slow (no signal)
+    hl_filtered = pairs_df[
         pairs_df["half_life"].notna() &
         (pairs_df["half_life"] >= 2) &
         (pairs_df["half_life"] <= 60)
     ].head(max_pairs).reset_index(drop=True)
 
-    if pairs_df.empty:
-        raise ValueError("All pairs filtered by half-life (2–60 days). Try sector_only=False.")
+    # If half-life filter removes everything, relax it rather than crashing
+    if hl_filtered.empty:
+        logger.warning("Half-life filter (2–60 days) removed all pairs — using top pairs without HL filter")
+        pairs_df = pairs_df.head(max_pairs).reset_index(drop=True)
+    else:
+        pairs_df = hl_filtered
 
     logger.info(f"Selected {len(pairs_df)} pairs")
 

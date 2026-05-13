@@ -33,8 +33,9 @@ from statsmodels.tools import add_constant
 
 logger = logging.getLogger(__name__)
 
-MIN_OBSERVATIONS = 252   # at least 1 year of overlapping data
-COINT_PVALUE     = 0.05  # Engle-Granger significance threshold
+MIN_OBSERVATIONS = 200   # at least ~10 months of overlapping data
+COINT_PVALUE     = 0.10  # Engle-Granger threshold — 0.10 is standard in pairs literature
+                          # Engle-Granger has low power on ~800 obs; 0.05 rejects too many real pairs
 
 
 def find_cointegrated_pairs(
