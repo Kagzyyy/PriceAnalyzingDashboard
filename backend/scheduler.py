@@ -184,5 +184,6 @@ def create_scheduler() -> AsyncIOScheduler:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    from backend.data.storage import init_db
     init_db()
     asyncio.run(run_full_pipeline())
