@@ -33,4 +33,4 @@ TOP_N = 50                # top N longs/shorts to return
 # "all"     → full ~177 stock list (original)
 # "nifty50" → Nifty 50 only (50 stocks, best data quality for earnings/analyst)
 # "nifty100"→ Nifty 100 (100 stocks, used by pairs strategy for more pairs)
-UNIVERSE = os.getenv("UNIVERSE", "nifty50")
+UNIVERSE = os.getenv("UNIVERSE", "nifty100")

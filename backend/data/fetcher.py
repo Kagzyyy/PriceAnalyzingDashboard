@@ -21,6 +21,8 @@ def fetch_history(tickers: list[str], days: int) -> pd.DataFrame:
     start = end - timedelta(days=days)
     all_frames = []
 
+    failed_tickers = []   # tickers that failed in batch — retried individually below
+
     for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i:i + BATCH_SIZE]
         logger.info(f"Fetching batch {i // BATCH_SIZE + 1}/{-(-len(tickers) // BATCH_SIZE)}: {len(batch)} tickers")
@@ -34,27 +36,62 @@ def fetch_history(tickers: list[str], days: int) -> pd.DataFrame:
                 threads=True,
             )
             if raw.empty:
+                failed_tickers.extend(batch)
                 continue
 
             # Handle single vs multi ticker response
             if isinstance(raw.columns, pd.MultiIndex):
                 # Multi-ticker: columns are (price_type, ticker)
+                fetched = set(raw.columns.get_level_values(1))
                 for ticker in batch:
-                    if ticker not in raw.columns.get_level_values(1):
+                    if ticker not in fetched:
+                        failed_tickers.append(ticker)
                         continue
                     df = raw.xs(ticker, level=1, axis=1).copy()
                     df = _clean_ohlcv(df, ticker)
                     if df is not None:
                         all_frames.append(df)
+                    else:
+                        failed_tickers.append(ticker)
             else:
                 # Single ticker
                 df = raw.copy()
                 df = _clean_ohlcv(df, batch[0])
                 if df is not None:
                     all_frames.append(df)
+                else:
+                    failed_tickers.append(batch[0])
         except Exception as e:
             logger.warning(f"Batch fetch error: {e}")
+            failed_tickers.extend(batch)
             continue
+
+    # ── Retry failed tickers one-by-one with repair=True ─────────────────────
+    # yfinance sometimes drops tickers with timezone issues in batch mode.
+    # Individual download with repair=True usually recovers them (ZOMATO, TATAMOTORS, etc.)
+    if failed_tickers:
+        logger.info(f"Retrying {len(failed_tickers)} failed tickers individually: {failed_tickers}")
+        for ticker in failed_tickers:
+            try:
+                raw = yf.download(
+                    ticker,
+                    start=start.strftime("%Y-%m-%d"),
+                    end=end.strftime("%Y-%m-%d"),
+                    auto_adjust=True,
+                    progress=False,
+                    repair=True,
+                )
+                if raw.empty:
+                    logger.warning(f"No data for {ticker} even after retry — skipping")
+                    continue
+                df = _clean_ohlcv(raw, ticker)
+                if df is not None:
+                    all_frames.append(df)
+                    logger.info(f"Recovered {ticker}: {len(df)} rows")
+                else:
+                    logger.warning(f"Could not clean data for {ticker} — skipping")
+            except Exception as e:
+                logger.warning(f"Retry failed for {ticker}: {e}")
 
     if not all_frames:
         return pd.DataFrame()
