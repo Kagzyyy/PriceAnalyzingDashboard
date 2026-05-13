@@ -29,6 +29,7 @@ def engineer_features(
     df: pd.DataFrame,
     sentiment_df: pd.DataFrame | None = None,
     nifty_df: pd.DataFrame | None = None,
+    use_fundamental: bool = True,
 ) -> pd.DataFrame:
     """
     Takes long-format OHLCV dataframe (ticker, date, open, high, low, close, volume).
@@ -94,6 +95,10 @@ def engineer_features(
 
     out = pd.concat(result_frames, ignore_index=True)
     out = out.dropna(subset=["label"])
+
+    # ── Fundamental features (earnings surprise + analyst targets) ─────────
+    if use_fundamental:
+        out = _add_fundamental_features(out)
 
     # ── Cross-sectional sector-relative features ───────────────────────────
     # These MUST be computed after the full concat — they compare each stock
@@ -198,6 +203,20 @@ def _add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["sent_zscore"]    = df["sent_zscore"].astype(float)
     df["news_count"]     = df["news_count"].astype(float)
 
+    # --- PEAD proxy (Post-Earnings Announcement Drift via price gaps) ------
+    # Large price gaps (>3%) often signal earnings surprises. After a positive
+    # earnings gap, stocks tend to drift upward for 20-60 days. This encodes
+    # that drift signal from OHLCV alone — no EPS data needed.
+    large_gap_up   = (df["gap_pct"] >  3.0).astype(float)
+    large_gap_down = (df["gap_pct"] < -3.0).astype(float)
+    df["pead_gap_up_5d"]    = large_gap_up.rolling(5,  min_periods=1).sum()
+    df["pead_gap_up_20d"]   = large_gap_up.rolling(20, min_periods=1).sum()
+    df["pead_gap_up_60d"]   = large_gap_up.rolling(60, min_periods=1).sum()
+    df["pead_gap_down_5d"]  = large_gap_down.rolling(5,  min_periods=1).sum()
+    df["pead_gap_down_20d"] = large_gap_down.rolling(20, min_periods=1).sum()
+    # Net gap momentum: recent positive gaps minus negative gaps (signed signal)
+    df["pead_net_20d"] = df["pead_gap_up_20d"] - df["pead_gap_down_20d"]
+
     # --- Label: 5-day relative outperformance vs Nifty 50 ─────────────────
     # label = 1 if this stock beats the Nifty 50 over the next 5 trading days
     # This is always ~50/50 balanced (regime-independent) and has more signal
@@ -207,6 +226,78 @@ def _add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["label"]   = (stock_5d_ret > nifty_5d_ret).astype(float)
 
     return df
+
+
+def _add_fundamental_features(out: pd.DataFrame) -> pd.DataFrame:
+    """
+    Attach earnings surprise and analyst target features.
+
+    Earnings surprise: PEAD (Post-Earnings Announcement Drift)
+      Stocks that beat EPS estimates tend to drift upward for 20-60 days.
+      Feature is the most recent quarter's surprise % for each stock on each date.
+
+    Analyst price targets: stocks far below mean analyst target tend to outperform.
+      Feature is (mean_target - price) / price = upside %.
+
+    NOTE: yfinance NSE earnings history only covers ~4 quarters (last ~1 year).
+    Features are 0.0 for dates before available earnings data.
+    """
+    try:
+        from backend.data.symbols import get_tickers
+        from backend.data.earnings import get_earnings, build_earnings_features, get_analyst_targets
+
+        tickers = list(out["ticker"].unique())
+
+        # ── Earnings surprise ──────────────────────────────────────────────
+        earnings_df = get_earnings(tickers)
+        if not earnings_df.empty:
+            out = build_earnings_features(out, earnings_df)
+            logger.info(f"Earnings features merged: {(out['earnings_surprise_pct'] != 0).sum()} non-zero rows")
+        else:
+            out["earnings_surprise_pct"] = 0.0
+            out["days_since_earnings"]   = 999.0
+            out["earnings_beat_streak"]  = 0.0
+
+        # Derived earnings features
+        # PEAD decay: surprise fades after ~60 days → weight by recency
+        out["pead_weighted_surprise"] = (
+            out["earnings_surprise_pct"]
+            * np.exp(-out["days_since_earnings"].clip(0, 999) / 60.0)
+        )
+        # Categorical: strong beat / beat / miss / strong miss
+        s = out["earnings_surprise_pct"]
+        out["earnings_strong_beat"] = (s >  0.10).astype(float)  # beat by >10%
+        out["earnings_beat"]        = ((s > 0) & (s <= 0.10)).astype(float)
+        out["earnings_miss"]        = (s <  0.0).astype(float)
+
+        # ── Analyst targets ────────────────────────────────────────────────
+        analyst_df = get_analyst_targets(tickers)
+        if not analyst_df.empty:
+            # Static feature: merge on ticker only (same value for all dates)
+            out = out.merge(
+                analyst_df[["ticker", "analyst_upside_pct", "analyst_buy_pct", "analyst_count"]],
+                on="ticker", how="left",
+            )
+            out["analyst_upside_pct"] = out["analyst_upside_pct"].fillna(0.0)
+            out["analyst_buy_pct"]    = out["analyst_buy_pct"].fillna(0.5)
+            out["analyst_count"]      = out["analyst_count"].fillna(0.0)
+            logger.info(f"Analyst features merged for {analyst_df['ticker'].nunique()} stocks")
+        else:
+            out["analyst_upside_pct"] = 0.0
+            out["analyst_buy_pct"]    = 0.5
+            out["analyst_count"]      = 0.0
+
+    except Exception as e:
+        logger.warning(f"Fundamental features failed (non-fatal): {e}")
+        for col in [
+            "earnings_surprise_pct", "days_since_earnings", "earnings_beat_streak",
+            "pead_weighted_surprise", "earnings_strong_beat", "earnings_beat", "earnings_miss",
+            "analyst_upside_pct", "analyst_buy_pct", "analyst_count",
+        ]:
+            if col not in out.columns:
+                out[col] = 0.0
+
+    return out
 
 
 def _add_sector_relative_features(out: pd.DataFrame) -> pd.DataFrame:
@@ -296,8 +387,17 @@ FEATURE_COLS = [
     "nifty_ret_1d", "nifty_ret_5d", "nifty_ret_20d",
     "nifty_vs_ema20", "nifty_vs_ema50", "nifty_regime", "nifty_volatility",
     # Sector-relative strength (cross-sectional — stock vs sector peers)
-    # These require all tickers simultaneously and encode genuine edge:
     # RSI=65 when peers are at 45 is much more bullish than RSI=65 in isolation.
     "sector_ret_1d_vs_peers", "sector_ret_5d_vs_peers", "sector_ret_20d_vs_peers",
     "sector_rsi_rank", "sector_momentum_rank", "sector_volume_rank", "sector_bb_rank",
+    # PEAD proxy (Post-Earnings Announcement Drift via price gaps)
+    # Large gaps (>3%) are proxies for earnings surprises. After an earnings beat
+    # gap, stocks drift up for 20-60 days. Full 5-year history from OHLCV.
+    "pead_gap_up_5d", "pead_gap_up_20d", "pead_gap_up_60d",
+    "pead_gap_down_5d", "pead_gap_down_20d", "pead_net_20d",
+    # Earnings surprise (yfinance — last 4 quarters, covers ~Sep 2024 onward)
+    "earnings_surprise_pct", "days_since_earnings", "earnings_beat_streak",
+    "pead_weighted_surprise", "earnings_strong_beat", "earnings_beat", "earnings_miss",
+    # Analyst price targets (static per stock — current snapshot)
+    "analyst_upside_pct", "analyst_buy_pct", "analyst_count",
 ]
