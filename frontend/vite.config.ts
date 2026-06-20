@@ -12,4 +12,12 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'esnext',   // three.js WebGPU build uses top-level await
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext', // same fix for dev mode
+    },
+  },
 })

@@ -236,3 +236,145 @@ export interface PairsParams {
 
 export const fetchPairsBacktest = (params?: PairsParams) =>
   api.get<PairsResult>('/pairs-backtest', { params }).then(r => r.data)
+
+// ── Gap and Go Backtest ────────────────────────────────────────────────────
+export interface GapMetrics {
+  total_return_pct:   number
+  annualized_return:  number
+  sharpe_ratio:       number
+  max_drawdown_pct:   number
+  win_rate_pct:       number
+  avg_win_pct:        number
+  avg_loss_pct:       number
+  profit_factor:      number
+  total_trades:       number
+  total_gaps_seen:    number
+  ml_filtered:        number
+  sentiment_filtered: number
+  sector_filtered:    number
+  trades_taken:       number
+  backtest_days:      number
+  backtest_start:     string
+  backtest_end:       string
+  initial_capital:    number
+  final_capital:      number
+  benchmark_return:   number
+  alpha:              number
+}
+
+export interface GapTradeRecord {
+  date:        string
+  ticker:      string
+  gap_pct:     number
+  entry:       number
+  ret_pct:     number
+  exit_reason: string
+  won:         boolean
+}
+
+export interface GapFilterStats {
+  total_gaps:         number
+  gap_cap_filtered:   number
+  ml_filtered:        number
+  sentiment_filtered: number
+  sector_filtered:    number
+  volume_filtered:    number
+  rsi_filtered:       number
+  nifty_filtered:     number
+  trend_filtered:     number
+  gap_ml_filtered:    number
+  traded:             number
+}
+
+export interface GapResult {
+  metrics:         GapMetrics
+  equity_curve:    EquityPoint[]
+  benchmark_curve: EquityPoint[]
+  monthly:         MonthlyReturn[]
+  trades:          GapTradeRecord[]
+  exit_breakdown:  Record<string, number>
+  filter_stats:    GapFilterStats
+  warnings:        string[]
+}
+
+export interface GapParams {
+  gap_threshold?:      number
+  gap_max_pct?:        number
+  target_pct?:         number
+  stop_pct?:           number
+  ml_threshold?:       number
+  sent_threshold?:     number
+  max_positions?:      number
+  volume_min_ratio?:   number
+  rsi_low?:            number
+  rsi_high?:           number
+  nifty_min_ret?:      number
+  use_ml_confirm?:     boolean
+  use_sentiment?:      boolean
+  use_sector_filter?:  boolean
+  use_volume_filter?:  boolean
+  use_rsi_filter?:     boolean
+  use_nifty_filter?:   boolean
+  use_trend_filter?:   boolean
+  use_gap_ml_confirm?: boolean
+  gap_ml_threshold?:   number
+  use_walkforward?:    boolean
+  slippage_pct?:       number
+  capital?:            number
+}
+
+export const trainGapModel = () =>
+  api.post('/train-gap-model').then(r => r.data)
+
+export const fetchGapBacktest = (params?: GapParams) =>
+  api.get<GapResult>('/gap-backtest', { params }).then(r => r.data)
+
+// ── Trade Intelligence ─────────────────────────────────────────────────────
+export interface TradeIntelParams {
+  gap_pct?:      number
+  nifty_ret?:    number
+  sector?:       string
+  volume_ratio?: number
+  sector_rank?:  number
+}
+
+export const fetchTradeIntel = (ticker: string, date: string, params?: TradeIntelParams) =>
+  api.get(`/trade-intel/${encodeURIComponent(ticker)}/${date}`, { params }).then(r => r.data)
+
+// ── God's Eye View / Market Pulse ─────────────────────────────────────────
+import type { GeoEvent, GlobeArc } from '../types/globe'
+
+export interface MacroPrediction {
+  title:            string
+  detail:           string
+  confidence:       number
+  timeframe:        string
+  direction:        'bullish' | 'bearish' | 'neutral' | 'risk'
+  category:         string
+  affected_markets: string[]
+  lat:              number
+  lng:              number
+  evidence:         string
+}
+
+export interface SectorOutlookItem {
+  direction: 'bullish' | 'bearish' | 'neutral'
+  reasoning: string
+}
+
+export interface MarketPulseResult {
+  macro_regime:      'risk_on' | 'risk_off' | 'neutral' | 'transitional'
+  regime_confidence: number
+  regime_reasoning:  string
+  predictions:       MacroPrediction[]
+  sector_outlook:    Record<string, SectorOutlookItem>
+  key_risks:         string[]
+  india_impact:      string
+  events:            GeoEvent[]
+  arcs:              GlobeArc[]
+  generated_at:      string
+  n_articles:        number
+}
+
+export const fetchMarketPulse = () =>
+  api.get<MarketPulseResult>('/market-pulse').then(r => r.data)

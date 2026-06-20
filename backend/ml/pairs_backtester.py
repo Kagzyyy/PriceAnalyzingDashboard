@@ -224,8 +224,8 @@ def run_pairs_backtest(
     trading_px   = prices.loc[prices.index >  split_date]
 
     logger.info(
-        f"Formation: {str(all_dates[0])[:10]} → {str(split_date)[:10]} | "
-        f"Trading: {str(split_date)[:10]} → {str(all_dates[-1])[:10]}"
+        f"Formation: {str(all_dates[0])[:10]} to {str(split_date)[:10]} | "
+        f"Trading: {str(split_date)[:10]} to {str(all_dates[-1])[:10]}"
     )
 
     # ── 3. Find cointegrated pairs on formation period ────────────────────

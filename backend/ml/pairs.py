@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 MIN_OBSERVATIONS = 200   # at least ~10 months of overlapping data
 COINT_PVALUE     = 0.10  # Engle-Granger threshold — 0.10 is standard in pairs literature
                           # Engle-Granger has low power on ~800 obs; 0.05 rejects too many real pairs
+MIN_CORRELATION  = 0.60  # reject pairs with weak linear relationship (incl. negative β pairs)
+                          # Negative β means both stocks move in OPPOSITE directions — not a real pair
 
 
 def find_cointegrated_pairs(
@@ -92,18 +94,32 @@ def find_cointegrated_pairs(
                 if pvalue >= COINT_PVALUE:
                     continue
 
+                # Economic sanity: reject pairs with weak or negative correlation.
+                # Negative correlation → β will be negative → not a market-neutral pair.
+                # Low correlation → cointegration is likely spurious.
+                corr = float(np.corrcoef(log_p1, log_p2)[0, 1])
+                if corr < MIN_CORRELATION:
+                    continue
+
                 # Hedge ratio via OLS: log(p1) = β*log(p2) + α
                 X    = add_constant(log_p2)
                 res  = OLS(log_p1, X).fit()
                 beta = float(res.params[1])
+
+                # Reject negative hedge ratio: means the two stocks move in OPPOSITE
+                # directions — not a real economic relationship for pairs trading.
+                if beta <= 0:
+                    continue
 
                 # Spread = log(p1) - β*log(p2)
                 spread = pd.Series(log_p1 - beta * log_p2)
 
                 # Half-life via Ornstein-Uhlenbeck:
                 # Δspread = λ*spread(t-1) + ε  →  half_life = -ln(2)/λ
-                spread_lag  = spread.shift(1).dropna()
-                spread_diff = spread.diff().dropna()
+                # Use .values to get numpy arrays so add_constant produces
+                # integer-indexed params (params[0]=const, params[1]=lambda)
+                spread_lag  = spread.shift(1).dropna().values
+                spread_diff = spread.diff().dropna().values
                 hl_res      = OLS(spread_diff, add_constant(spread_lag)).fit()
                 lam         = float(hl_res.params[1])
                 half_life   = round(-np.log(2) / lam, 1) if lam < 0 else None
@@ -117,7 +133,7 @@ def find_cointegrated_pairs(
                     "pvalue":      round(float(pvalue), 4),
                     "hedge_ratio": round(float(beta), 4),
                     "half_life":   half_life,
-                    "correlation": round(float(np.corrcoef(log_p1, log_p2)[0, 1]), 4),
+                    "correlation": round(corr, 4),
                     "n_obs":       len(common),
                 })
 

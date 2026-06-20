@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.data.storage import init_db
 from backend.scheduler import create_scheduler
-from backend.api.routes import predictions, stocks, sectors, assistant, system, backtest, pairs_backtest
+from backend.api.routes import predictions, stocks, sectors, assistant, system, backtest, pairs_backtest, gap_backtest, trade_intel, market_pulse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +55,9 @@ app.include_router(assistant.router, prefix="/api", tags=["Assistant"])
 app.include_router(system.router,    prefix="/api", tags=["System"])
 app.include_router(backtest.router,       prefix="/api", tags=["Backtest"])
 app.include_router(pairs_backtest.router, prefix="/api", tags=["Pairs"])
+app.include_router(gap_backtest.router,   prefix="/api", tags=["Gap and Go"])
+app.include_router(trade_intel.router,    prefix="/api", tags=["Trade Intel"])
+app.include_router(market_pulse.router,   prefix="/api", tags=["Market Pulse"])
 
 
 @app.get("/")

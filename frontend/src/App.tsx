@@ -1,96 +1,210 @@
-import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import { TrendingUp, RefreshCw, Search } from 'lucide-react'
-import Dashboard from './pages/Dashboard'
-import Rankings from './pages/Rankings'
-import StockDetail from './pages/StockDetail'
-import Chat from './pages/Chat'
-import Backtest from './pages/Backtest'
-import PairsBacktest from './pages/PairsBacktest'
-import { triggerRefresh } from './api/client'
+import { BrowserRouter, NavLink, useLocation } from 'react-router-dom'
+import { Globe2, BarChart2 } from 'lucide-react'
+import GodEyeView from './pages/GodEyeView'
+import GapAndGo from './pages/GapAndGo'
 
-function Navbar() {
-  const [refreshing, setRefreshing] = useState(false)
-  const [query, setQuery] = useState('')
-  const navigate = useNavigate()
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try { await triggerRefresh() }
-    finally { setTimeout(() => setRefreshing(false), 2000) }
-  }
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (query.trim()) navigate(`/stocks/${query.trim().toUpperCase()}`)
-  }
-
-  const navCls = ({ isActive }: { isActive: boolean }) =>
-    `relative py-4 px-1 text-sm font-medium transition-colors duration-200 ${
-      isActive ? 'text-white nav-active' : 'text-gray-500 hover:text-gray-300'
-    }`
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function Sidebar() {
+  const loc = useLocation()
 
   return (
-    <nav className="sticky top-0 z-50 bg-black/90 backdrop-blur-xl border-b border-white/[0.06]">
-      <div className="max-w-screen-xl mx-auto px-6 flex items-center gap-8 h-14">
-        {/* Logo */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
-            <TrendingUp className="text-black" size={14} strokeWidth={2.5} />
-          </div>
-          <span className="font-semibold text-white tracking-tight">NSE Predict</span>
-        </div>
-
-        {/* Nav */}
-        <div className="flex items-center gap-6">
-          <NavLink to="/" end className={navCls}>Dashboard</NavLink>
-          <NavLink to="/rankings" className={navCls}>Rankings</NavLink>
-          <NavLink to="/backtest" className={navCls}>Backtest</NavLink>
-          <NavLink to="/pairs" className={navCls}>Pairs</NavLink>
-          <NavLink to="/chat" className={navCls}>Research AI</NavLink>
-        </div>
-
-        {/* Search */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-[220px] ml-auto">
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search symbol…"
-              className="input-base w-full pl-8 py-2 text-xs"
-            />
-          </div>
-        </form>
-
-        {/* Refresh */}
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors duration-200 disabled:opacity-40"
-        >
-          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
+    <aside style={{
+      width: 196,
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      borderRight: '1px solid var(--border)',
+      background: 'var(--surface)',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
+    }}>
+      {/* ── Branding ── */}
+      <div style={{
+        padding: '20px 18px 17px',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <span style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--text-1)',
+          letterSpacing: '-0.01em',
+          display: 'block',
+          marginBottom: 3,
+        }}>
+          Alpha Edge
+        </span>
+        <p style={{
+          fontSize: 10,
+          color: 'var(--text-3)',
+          letterSpacing: '0.04em',
+          margin: 0,
+        }}>
+          NSE · Nifty 100
+        </p>
       </div>
-    </nav>
+
+      {/* ── Navigation ── */}
+      <nav style={{ flexShrink: 0, paddingTop: 4, paddingBottom: 4 }}>
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        >
+          <Globe2 size={13} />
+          God's Eye View
+        </NavLink>
+        <NavLink
+          to="/gap"
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        >
+          <BarChart2 size={13} />
+          Gap &amp; Go
+        </NavLink>
+      </nav>
+
+      <div style={{ height: 1, background: 'var(--border)', margin: '0 0' }} />
+
+      {/* ── Context description ── */}
+      {/* ── Context description ── */}
+      <div style={{ padding: '16px 18px', flex: 1 }}>
+        {loc.pathname === '/' || loc.pathname === '' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <p className="label" style={{ marginBottom: 7 }}>About</p>
+              <p style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.65, margin: 0 }}>
+                30-day macro synthesis via Groq LLaMA 3.3. Forward predictions with confidence scores and geographic mapping.
+              </p>
+            </div>
+            <div>
+              <p className="label" style={{ marginBottom: 7 }}>Prediction signals</p>
+              {[
+                { color: 'var(--green)', label: 'Bullish' },
+                { color: 'var(--red)',   label: 'Bearish' },
+                { color: 'var(--accent)',label: 'Neutral / structural' },
+                { color: 'var(--amber)', label: 'Tail risk' },
+              ].map(({ color, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <p className="label" style={{ marginBottom: 7 }}>Strategy</p>
+              {[
+                ['Gap',    '≥ 1.5% open'],
+                ['Target', '+2.0%'],
+                ['Stop',   '−0.5%'],
+                ['R:R',    '4 : 1'],
+                ['Cost',   '0.20% r/t'],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '0.03em' }}>{k}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', fontFamily: 'JetBrains Mono, monospace' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="label" style={{ marginBottom: 7 }}>Trade Intel</p>
+              <p style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, margin: 0 }}>
+                Click the globe icon on any trade row for AI reasoning and related news via RAG + Groq.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Status footer ── */}
+      <div style={{
+        padding: '10px 18px',
+        borderTop: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexShrink: 0,
+      }}>
+        <span className="status-dot live" style={{ fontSize: 9 }}>Live</span>
+        <span style={{
+          fontSize: 9,
+          color: 'var(--text-3)',
+          fontFamily: 'JetBrains Mono, monospace',
+          letterSpacing: '0.03em',
+        }}>
+          v2.1
+        </span>
+      </div>
+    </aside>
+  )
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function AppInner() {
+  const loc      = useLocation()
+  const isGlobe  = loc.pathname === '/' || loc.pathname === ''
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
+      <Sidebar />
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          overflow: 'hidden',
+          position: 'relative',   // anchor for absolute children
+        }}
+      >
+        {/*
+          Both pages stay MOUNTED at all times.
+          We use position:absolute + visibility instead of display:none so
+          each pane always fills the full area and keeps its layout dimensions.
+          This is critical for the ResizeObserver inside TradeGlobe — when a
+          parent has display:none its children report 0×0 and the WebGL canvas
+          never recovers. With visibility:hidden the dimensions stay intact and
+          the globe renders correctly the moment the tab becomes visible again.
+        */}
+
+        {/* God's Eye View — always laid out, hidden via visibility */}
+        <div style={{
+          position:      'absolute',
+          inset:         0,
+          display:       'flex',
+          overflow:      'hidden',
+          visibility:    isGlobe ? 'visible' : 'hidden',
+          pointerEvents: isGlobe ? 'auto'    : 'none',
+          zIndex:        isGlobe ? 1         : 0,
+        }}>
+          <GodEyeView />
+        </div>
+
+        {/* Gap & Go — always laid out, hidden via visibility */}
+        <div style={{
+          position:      'absolute',
+          inset:         0,
+          display:       'flex',
+          flexDirection: 'column',
+          overflowY:     'auto',
+          overflowX:     'hidden',
+          visibility:    isGlobe ? 'hidden' : 'visible',
+          pointerEvents: isGlobe ? 'none'   : 'auto',
+          zIndex:        isGlobe ? 0        : 1,
+        }}>
+          <GapAndGo />
+        </div>
+      </main>
+    </div>
   )
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Navbar />
-      <main className="max-w-screen-xl mx-auto px-6 py-8">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/rankings" element={<Rankings />} />
-          <Route path="/stocks/:symbol" element={<StockDetail />} />
-          <Route path="/backtest" element={<Backtest />} />
-          <Route path="/pairs" element={<PairsBacktest />} />
-          <Route path="/chat" element={<Chat />} />
-        </Routes>
-      </main>
+      <AppInner />
     </BrowserRouter>
   )
 }

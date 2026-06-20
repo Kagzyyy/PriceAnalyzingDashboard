@@ -22,7 +22,9 @@
       "Bash(/c/Python314/python.exe -c \":*)",
       "Bash(/c/Python314/python.exe -c \"from google import genai; print\\(''ok''\\)\")",
       "Bash(C:/Python314/python.exe -c \":*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python -c ' *)",
+      "Bash(/c/Python314/python.exe -m pip install anthropic --quiet)"
     ]
   }
 }

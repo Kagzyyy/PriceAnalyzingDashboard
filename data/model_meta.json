@@ -1,1 +1,1 @@
-{"trained_at": "2026-04-13T19:15:16.502369", "accuracy": 0.5085, "train_accuracy": 0.5599, "precision": 0.488, "recall": 0.3986, "overfit_gap": 0.0514, "n_samples": 215980, "n_stocks": 177}
+{"trained_at": "2026-05-13T15:42:43.939733", "accuracy": 0.4976, "train_accuracy": 0.56, "precision": 0.4946, "recall": 0.4145, "overfit_gap": 0.0624, "n_samples": 111856, "n_stocks": 91}
